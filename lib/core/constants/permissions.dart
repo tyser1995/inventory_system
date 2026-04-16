@@ -107,18 +107,44 @@ bool userHasPermission(AppUser user, AppPermission permission) {
 Set<AppPermission> defaultPermissionsForRole(String role) =>
     _rolePermissions[role] ?? {};
 
-/// The minimum permission required to visit each route.
+/// The minimum permission required to visit each route prefix.
+///
+/// Matching uses longest-prefix-wins (see [router.dart]), so more specific
+/// sub-routes always take precedence over their parent.
 /// Routes not listed are accessible to any authenticated user.
 const Map<String, AppPermission> routePermissions = {
+  // Products
   '/products': AppPermission.viewProducts,
   '/products/new': AppPermission.manageProducts,
+  '/products/edit': AppPermission.manageProducts,
+
+  // Categories
   '/categories': AppPermission.viewCategories,
+
+  // Transactions
   '/transactions': AppPermission.viewTransactions,
   '/transactions/new': AppPermission.manageTransactions,
+
+  // Users
   '/users': AppPermission.viewUsers,
+
+  // Settings
   '/settings': AppPermission.viewSettings,
+
+  // Reports
   '/reports': AppPermission.viewReports,
+
+  // Purchase orders + suppliers (same access tier)
   '/purchase-orders': AppPermission.viewPurchaseOrders,
+  '/purchase-orders/new': AppPermission.managePurchaseOrders,
+  '/purchase-orders/': AppPermission.managePurchaseOrders, // covers /:id
+  '/suppliers': AppPermission.viewPurchaseOrders,
+
+  // Warehouses
   '/warehouses': AppPermission.viewWarehouses,
+
+  // Sales orders
   '/sales-orders': AppPermission.viewSalesOrders,
+  '/sales-orders/new': AppPermission.manageSalesOrders,
+  '/sales-orders/': AppPermission.manageSalesOrders, // covers /:id
 };

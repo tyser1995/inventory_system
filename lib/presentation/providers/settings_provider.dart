@@ -15,6 +15,9 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     final repo = ref.read(settingsRepositoryProvider);
     await repo.saveSettings(settings);
     state = AsyncData(settings);
+    // Force the SupabaseClient to re-evaluate now that credentials may have
+    // changed in SecureStorageService.
+    ref.invalidate(supabaseClientProvider);
   }
 }
 
@@ -24,12 +27,9 @@ final settingsProvider =
 final themeModeProvider = Provider<ThemeMode>((ref) {
   final settings = ref.watch(settingsProvider);
   final mode = settings.valueOrNull?.themeMode ?? 'system';
-  switch (mode) {
-    case 'light':
-      return ThemeMode.light;
-    case 'dark':
-      return ThemeMode.dark;
-    default:
-      return ThemeMode.system;
-  }
+  return switch (mode) {
+    'light' => ThemeMode.light,
+    'dark' => ThemeMode.dark,
+    _ => ThemeMode.system,
+  };
 });

@@ -1,47 +1,56 @@
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/errors/app_error.dart';
+import '../../core/services/secure_storage_service.dart';
+import '../../core/utils/password_hasher.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../local/dao/user_dao.dart';
 import '../local/database/app_database.dart';
 
-String _hashPassword(String password) =>
-    sha256.convert(utf8.encode(password)).toString();
-
 class LocalAuthRepository implements AuthRepository {
   final LocalUserDao _dao;
-  final SharedPreferences _prefs;
+  final SecureStorageService _secure;
   static const _uuid = Uuid();
 
-  LocalAuthRepository(this._dao, this._prefs);
+  LocalAuthRepository(this._dao, this._secure);
 
   @override
   Future<AppUser> login(String usernameOrEmail, String password) async {
     final user = await _dao.getByUsernameOrEmail(usernameOrEmail);
-    if (user == null) throw const AuthError('User not found');
-    if (user.passwordHash != _hashPassword(password)) {
-      throw const AuthError('Invalid password');
+    // Unified error prevents username enumeration.
+    if (user == null || !verifyPassword(password, user.passwordHash)) {
+      throw const AuthError('Invalid credentials');
     }
-    await _prefs.setString(AppConstants.keyCurrentUserId, user.id);
-    await _prefs.setString(AppConstants.keyCurrentUserRole, user.role);
+    // Seamlessly upgrade legacy SHA-256 hashes to bcrypt on a successful login.
+    if (needsUpgrade(user.passwordHash)) {
+      await _dao.upsert(UsersTableCompanion.insert(
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        passwordHash: hashPassword(password),
+        createdAt: user.createdAt,
+        customPermissions: Value(
+          user.customPermissions != null ? jsonEncode(user.customPermissions) : null,
+        ),
+      ));
+    }
+    await _secure.set(AppConstants.keyCurrentUserId, user.id);
     return user;
   }
 
   @override
   Future<void> logout() async {
-    await _prefs.remove(AppConstants.keyCurrentUserId);
-    await _prefs.remove(AppConstants.keyCurrentUserRole);
+    await _secure.remove(AppConstants.keyCurrentUserId);
   }
 
   @override
   Future<AppUser?> getCurrentUser() async {
-    final id = _prefs.getString(AppConstants.keyCurrentUserId);
+    final id = _secure.get(AppConstants.keyCurrentUserId);
     if (id == null) return null;
     return _dao.getById(id);
   }
@@ -56,7 +65,7 @@ class LocalAuthRepository implements AuthRepository {
   }) async {
     final id = _uuid.v4();
     final now = DateTime.now();
-    final hash = _hashPassword(password);
+    final hash = hashPassword(password);
     final companion = UsersTableCompanion.insert(
       id: id,
       username: username,
@@ -90,7 +99,7 @@ class LocalAuthRepository implements AuthRepository {
       username: user.username,
       email: user.email,
       role: user.role,
-      passwordHash: newPassword != null ? _hashPassword(newPassword) : user.passwordHash,
+      passwordHash: newPassword != null ? hashPassword(newPassword) : user.passwordHash,
       createdAt: user.createdAt,
       customPermissions: Value(
         user.customPermissions != null ? jsonEncode(user.customPermissions) : null,
