@@ -67,6 +67,14 @@ class LocalTransactionDao {
     await _db.into(_db.transactionsTable).insert(companion);
   }
 
+  /// Inserts [companion] and silently ignores the row if it already exists.
+  /// Used during backup restore to avoid duplicate transaction records.
+  Future<void> insertOrIgnore(TransactionsTableCompanion companion) async {
+    await _db
+        .into(_db.transactionsTable)
+        .insert(companion, mode: InsertMode.insertOrIgnore);
+  }
+
   Future<List<InventoryTransaction>> getAll() async {
     final rows = await _db.select(_db.transactionsTable).get();
     return rows.map((r) => r.toEntity()).toList();

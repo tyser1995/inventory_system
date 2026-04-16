@@ -39,12 +39,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Already logged in → skip login page
       if (loggedIn && isLoginPage) return '/dashboard';
 
-      // Route-level permission guard
+      // Route-level permission guard — longest prefix wins so that sub-routes
+      // (e.g. /products/new → manageProducts) are not shadowed by their parent
+      // (e.g. /products → viewProducts).
       if (loggedIn && !isUnauthorizedPage) {
         final requiredPermission = routePermissions.entries
             .where((e) => location.startsWith(e.key))
-            .map((e) => e.value)
-            .firstOrNull;
+            .fold<MapEntry<String, AppPermission>?>(
+              null,
+              (best, e) =>
+                  best == null || e.key.length > best.key.length ? e : best,
+            )
+            ?.value;
 
         if (requiredPermission != null &&
             !userHasPermission(user, requiredPermission)) {
@@ -83,7 +89,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/users', builder: (ctx, s) => const UsersScreen()),
           GoRoute(path: '/settings', builder: (ctx, s) => const SettingsScreen()),
 
-          // ── New feature routes ────────────────────────────────────────────
+          // ── Feature routes ───────────────────────────────────────────────
           GoRoute(path: '/reports', builder: (ctx, s) => const ReportsScreen()),
           GoRoute(path: '/purchase-orders', builder: (ctx, s) => const PurchaseOrdersScreen()),
           GoRoute(path: '/purchase-orders/new', builder: (ctx, s) => const PurchaseOrderFormScreen()),
@@ -108,8 +114,18 @@ final routerProvider = Provider<GoRouter>((ref) {
 });
 
 /// Makes GoRouter refresh when auth state changes.
+///
+/// Properly disposes the Riverpod subscription on [dispose] to avoid leaks.
 class RouterListenable extends ChangeNotifier {
-  RouterListenable(Ref ref, ProviderListenable provider) {
-    ref.listen(provider, (_, __) => notifyListeners());
+  late final ProviderSubscription<Object?> _sub;
+
+  RouterListenable(Ref ref, ProviderListenable<Object?> provider) {
+    _sub = ref.listen(provider, (prev, next) => notifyListeners());
+  }
+
+  @override
+  void dispose() {
+    _sub.close();
+    super.dispose();
   }
 }

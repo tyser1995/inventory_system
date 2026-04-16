@@ -29,14 +29,11 @@ class AuthNotifier extends AsyncNotifier<AppUser?> {
   bool hasRole(String role) {
     final user = currentUser;
     if (user == null) return false;
-    switch (role) {
-      case 'super_admin':
-        return user.isSuperAdmin;
-      case 'admin':
-        return user.isAdmin;
-      default:
-        return true;
-    }
+    return switch (role) {
+      'super_admin' => user.isSuperAdmin,
+      'admin' => user.isAdmin,
+      _ => false, // unknown role never grants access
+    };
   }
 }
 

@@ -206,6 +206,9 @@ class AppDatabase extends _$AppDatabase {
   /// Used by the web worker (web/drift_worker.dart) — no web parameter needed there.
   AppDatabase.forWorker() : super(driftDatabase(name: 'inventory.db'));
 
+  /// Used in unit tests — pass NativeDatabase.memory() for an in-memory SQLite instance.
+  AppDatabase.forTesting(super.executor);
+
   @override
   int get schemaVersion => 4;
 
