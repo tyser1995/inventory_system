@@ -2,11 +2,14 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, LogIn, Mail } from "lucide-react";
+import { AlertCircle, FlaskConical, LogIn, Mail } from "lucide-react";
 import { PasswordInput } from "@/components/auth/PasswordInput";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { api, ApiError } from "@/lib/client";
+import { DEV_MODE } from "@/lib/modes";
+
+type DemoAccount = { key: string; label: string; name: string; email: string };
 
 /** Only allow same-site relative redirects (prevents open-redirects via ?next=). */
 function safeNext(next: string | null) {
@@ -28,6 +31,8 @@ function LoginForm() {
   const [form, setForm] = useState({ email: "", password: "", remember: true });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [demos, setDemos] = useState<DemoAccount[]>([]);
+  const [demoBusy, setDemoBusy] = useState<string | null>(null);
 
   useEffect(() => {
     api<{ needsSetup: boolean; signedIn: boolean }>("/api/auth/status")
@@ -37,6 +42,23 @@ function LoginForm() {
       })
       .catch(() => undefined);
   }, [router, next]);
+
+  useEffect(() => {
+    if (!DEV_MODE) return;
+    api<DemoAccount[]>("/api/auth/demo").then(setDemos).catch(() => undefined);
+  }, []);
+
+  async function signInAsDemo(account: string) {
+    setDemoBusy(account);
+    setError(null);
+    try {
+      await api("/api/auth/demo", { method: "POST", json: { account } });
+      window.location.assign(next);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't sign in. Try again.");
+      setDemoBusy(null);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -100,6 +122,32 @@ function LoginForm() {
         </Button>
       </form>
       <p className="mt-6 text-center text-xs text-muted">Forgot your password? Ask an administrator to reset it.</p>
+
+      {demos.length > 0 && (
+        <section className="mt-8 rounded-xl border border-dashed border-accent/50 p-4">
+          <p className="flex items-center gap-2 text-sm font-semibold">
+            <FlaskConical className="size-4 text-accent" /> Demo accounts
+          </p>
+          <p className="mt-1 text-xs text-muted">Dev mode is on — sign in with one click to try each role.</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {demos.map((d) => (
+              <Button
+                key={d.key}
+                type="button"
+                variant="outline"
+                size="sm"
+                title={`${d.name} · ${d.email}`}
+                loading={demoBusy === d.key}
+                disabled={busy || (demoBusy !== null && demoBusy !== d.key)}
+                onClick={() => signInAsDemo(d.key)}
+                className="justify-center"
+              >
+                {d.label}
+              </Button>
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }
