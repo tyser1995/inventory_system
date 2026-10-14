@@ -35,10 +35,9 @@ function LoginForm() {
   const [demoBusy, setDemoBusy] = useState<string | null>(null);
 
   useEffect(() => {
-    api<{ needsSetup: boolean; signedIn: boolean }>("/api/auth/status")
+    api<{ signedIn: boolean }>("/api/auth/status")
       .then((s) => {
-        if (s.needsSetup) router.replace("/setup");
-        else if (s.signedIn) router.replace(next);
+        if (s.signedIn) router.replace(next);
       })
       .catch(() => undefined);
   }, [router, next]);
