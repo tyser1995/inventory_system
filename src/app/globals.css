@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * Dynamic theme tokens.
+ * --primary / --accent are set at runtime by ThemeProvider (user-selectable);
+ * everything else is derived from them so the whole UI re-tints instantly.
+ */
+:root {
+  --primary: #2563eb; /* blue */
+  --accent: #d4a017;  /* gold */
+  --primary-fg: #ffffff;
+  --accent-fg: #1a1405;
+  --radius: 1rem;
+  /* Background tint strength (unitless %), set per user: none 0 · subtle 5 · rich 10. */
+  --tint: 5;
+
+  /* Neutrals are mixed with the primary color so backgrounds follow the selected theme. */
+  --bg: color-mix(in oklab, var(--primary) calc(var(--tint) * 1%), #f7f8fb);
+  --surface: color-mix(in oklab, var(--primary) calc(var(--tint) * 0.4%), rgb(255 255 255 / 0.72));
+  --surface-solid: color-mix(in oklab, var(--primary) calc(var(--tint) * 0.3%), #ffffff);
+  --surface-2: color-mix(in oklab, var(--primary) calc(var(--tint) * 1.2%), #f1f3f8);
+  --border: color-mix(in oklab, var(--primary) calc(var(--tint) * 1.5%), rgb(15 23 42 / 0.08));
+  --text: #0f172a;
+  /* Muted text passes WCAG AA (≥4.5:1) on every tint level and preset. */
+  --muted: #525d6f;
+
+  --success: #059669;
+  --warning: #b45309;
+  --danger: #dc2626;
+
+  /* Chart series: user colors clamped into a legible lightness band. */
+  --chart-1: oklch(from var(--primary) clamp(0.43, l, 0.68) max(c, 0.1) h);
+  --chart-2: oklch(from var(--accent) clamp(0.43, l, 0.62) max(c, 0.1) h);
+  --chart-grid: rgb(15 23 42 / 0.07);
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg: color-mix(in oklab, var(--primary) calc(var(--tint) * 1.4%), #05070d);
+  --surface: color-mix(in oklab, var(--primary) calc(var(--tint) * 1.2%), rgb(15 20 33 / 0.62));
+  --surface-solid: color-mix(in oklab, var(--primary) calc(var(--tint) * 1.1%), #0d1220);
+  --surface-2: color-mix(in oklab, var(--primary) calc(var(--tint) * 1.4%), #141b2c);
+  --border: color-mix(in oklab, var(--primary) calc(var(--tint) * 2%), rgb(255 255 255 / 0.08));
+  --text: #e8ecf5;
+  --muted: #9aa3b8;
+
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+
+  --chart-1: oklch(from var(--primary) clamp(0.5, l, 0.66) max(c, 0.1) h);
+  --chart-2: oklch(from var(--accent) clamp(0.5, l, 0.64) max(c, 0.1) h);
+  --chart-grid: rgb(255 255 255 / 0.07);
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-solid: var(--surface-solid);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Ambient gradient mesh tinted by the active brand colors. */
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40rem 30rem at 0% 0%, color-mix(in oklab, var(--primary) calc(6% + var(--tint) * 2%), transparent), transparent 70%),
+    radial-gradient(36rem 28rem at 100% 10%, color-mix(in oklab, var(--accent) calc(5% + var(--tint) * 1.8%), transparent), transparent 70%),
+    radial-gradient(40rem 30rem at 50% 110%, color-mix(in oklab, var(--primary) calc(4% + var(--tint) * 1.2%), transparent), transparent 70%);
+}
+
+@layer components {
+  .glass {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+  }
+
+  .text-gradient {
+    background: linear-gradient(120deg, var(--primary), var(--accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .bg-brand-gradient {
+    background: linear-gradient(135deg, var(--primary), color-mix(in oklab, var(--primary) 55%, var(--accent)));
+  }
+
+  .ring-focus {
+    outline: none;
+  }
+  .ring-focus:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 35%, transparent);
+  }
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+/* Slim scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--muted) 40%, transparent) transparent;
+}
+
+dialog::backdrop {
+  background: rgb(2 6 23 / 0.55);
+  backdrop-filter: blur(4px);
+}
+
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.animate-pop { animation: pop-in 0.18s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
