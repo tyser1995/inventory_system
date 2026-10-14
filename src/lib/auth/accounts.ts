@@ -75,6 +75,18 @@ export async function login(email: string, password: string, ip: string) {
   return user;
 }
 
+/** Dev mode one-click sign-in: no password check, but the account must exist and be active. */
+export async function loginDemoAccount(email: string) {
+  const user = await read((db) => db.users.find((u) => u.email === normEmail(email)));
+  if (!user) throw new NotFoundError("This demo account doesn't exist yet");
+  if (!user.active) throw new ForbiddenError("This account has been deactivated. Contact an administrator.");
+  await write((db) => {
+    const u = db.users.find((x) => x.id === user.id);
+    if (u) u.lastLoginAt = now();
+  });
+  return user;
+}
+
 /* ───────────────────────── Own account ───────────────────────── */
 
 export async function updateOwnProfile(actor: AuthContext, input: { name: string; email: string }) {

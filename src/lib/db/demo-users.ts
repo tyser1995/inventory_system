@@ -47,7 +47,7 @@ export function demoAccounts() {
   });
 }
 
-/** Adds the demo accounts to a brand-new database. */
+/** Adds any configured demo account that is missing (no-op when dev mode is off). */
 export async function applyDemoUsers(db: Database) {
   const now = new Date().toISOString();
 

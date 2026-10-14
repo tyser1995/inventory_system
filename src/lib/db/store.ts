@@ -27,7 +27,7 @@ type StoreState = {
   adapter: StorageAdapter | null;
   adapterKey: string;
   cache: Database | null;
-  seeding?: Promise<Database>;
+  reloading?: Promise<Database>;
   queue: Promise<unknown>;
   listeners: Set<() => void>;
 };
@@ -97,27 +97,19 @@ function normalise(db: Database): Database {
 async function load(): Promise<Database> {
   const a = await adapter();
   if (state.cache && state.revision === NORMALISE_REVISION && !(await a.isStale())) return state.cache;
-  const loaded = await a.load();
-  if (loaded) {
-    const before = JSON.stringify(loaded);
-    const normalised = normalise(structuredClone(loaded));
-    // Persist migrations right away so every backend (and every process) sees them.
-    if (JSON.stringify(normalised) !== before) await a.save(normalised, loaded);
-    state.cache = normalised;
+  // Reloading is async (demo account hashing), so concurrent requests share one reload;
+  // otherwise each could add the demo accounts with different ids.
+  state.reloading ??= (async () => {
+    const loaded = await a.load();
+    const db = loaded ? normalise(structuredClone(loaded)) : createSeed(SCHEMA_VERSION);
+    await applyDemoUsers(db); // dev mode: make sure every configured demo account exists
+    // Persist seeds and migrations right away so every backend (and every process) sees them.
+    if (!loaded || JSON.stringify(db) !== JSON.stringify(loaded)) await a.save(db, loaded);
+    state.cache = db;
     state.revision = NORMALISE_REVISION;
-  } else {
-    // Seeding is async (demo account hashing), so concurrent first requests share one seed.
-    state.seeding ??= (async () => {
-      const seed = createSeed(SCHEMA_VERSION);
-      await applyDemoUsers(seed);
-      await a.save(seed, null);
-      state.cache = seed;
-      state.revision = NORMALISE_REVISION;
-      return seed;
-    })().finally(() => (state.seeding = undefined));
-    return state.seeding;
-  }
-  return state.cache;
+    return db;
+  })().finally(() => (state.reloading = undefined));
+  return state.reloading;
 }
 
 function enqueue<T>(task: () => Promise<T>): Promise<T> {
