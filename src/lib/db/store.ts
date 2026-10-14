@@ -5,6 +5,7 @@ import { BadRequestError } from "../errors";
 import type { Database } from "../types";
 import { createJsonAdapter } from "./adapters/json";
 import type { StorageAdapter } from "./adapters/types";
+import { applyDemoUsers } from "./demo-users";
 import { createSeed, defaultAlertSettings, defaultBranding, defaultDataSettings, defaultRoles } from "./seed";
 
 /**
@@ -26,6 +27,7 @@ type StoreState = {
   adapter: StorageAdapter | null;
   adapterKey: string;
   cache: Database | null;
+  seeding?: Promise<Database>;
   queue: Promise<unknown>;
   listeners: Set<() => void>;
 };
@@ -104,9 +106,16 @@ async function load(): Promise<Database> {
     state.cache = normalised;
     state.revision = NORMALISE_REVISION;
   } else {
-    state.cache = createSeed(SCHEMA_VERSION);
-    await a.save(state.cache, null);
-    state.revision = NORMALISE_REVISION;
+    // Seeding is async (demo account hashing), so concurrent first requests share one seed.
+    state.seeding ??= (async () => {
+      const seed = createSeed(SCHEMA_VERSION);
+      await applyDemoUsers(seed);
+      await a.save(seed, null);
+      state.cache = seed;
+      state.revision = NORMALISE_REVISION;
+      return seed;
+    })().finally(() => (state.seeding = undefined));
+    return state.seeding;
   }
   return state.cache;
 }
