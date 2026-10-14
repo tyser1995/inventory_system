@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- **Demo sign-in bounced back to `/login` on Vercel.** Vercel runs several instances, each with its own temporary database, and each created the demo accounts with random ids — so a session issued by one instance was rejected by the others (16 of 25 parallel requests returned 401). Demo users and the Manager role now get ids derived from their email/role, identical on every instance. (`src/lib/db/demo-users.ts`)
 - **Every API call on Vercel returned HTTP 500.** The app wrote its database, config, logs and backups to `data/` inside the project, which is read-only on Vercel. On Vercel the data folder now defaults to the system temp directory; `INVENTORY_DATA_DIR` still overrides it. (`src/lib/config.ts`, commit `41a3104`)
 - **Concurrent requests could add the demo accounts twice.** Simultaneous requests each created their own copy of the demo accounts with different ids, which could sign a user out right after logging in. Database reloads are now shared by all in-flight requests. (`src/lib/db/store.ts`)
 

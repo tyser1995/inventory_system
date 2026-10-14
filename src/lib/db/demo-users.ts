@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { hashPassword } from "../auth/password";
 import { SUPERADMIN_ROLE_ID, type Permission } from "../auth/permissions";
 import { DEV_MODE } from "../modes";
@@ -26,6 +27,16 @@ export type DemoAccountKey = (typeof ACCOUNTS)[number]["key"];
 export const DEMO_ACCOUNT_KEYS = ACCOUNTS.map((a) => a.key) as [DemoAccountKey, ...DemoAccountKey[]];
 
 const MIN_PASSWORD = 8;
+
+/**
+ * Stable UUID-shaped id from a seed string. Each serverless instance (e.g. on Vercel) builds its
+ * own database, so demo users and roles need the same ids everywhere — otherwise a session cookie
+ * issued by one instance is rejected by the next.
+ */
+function stableId(seed: string) {
+  const h = createHash("sha256").update(`stockvault-demo:${seed}`).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
 
 /** Demo accounts with a usable email + password in the environment (empty unless dev mode is on). */
 export function demoAccounts() {
@@ -56,14 +67,14 @@ export async function applyDemoUsers(db: Database) {
 
     let role = "roleId" in account ? db.roles.find((r) => r.id === account.roleId) : db.roles.find((r) => r.name === account.roleName);
     if (!role && "roleName" in account) {
-      const created: Role = { id: crypto.randomUUID(), name: account.roleName, permissions: [...account.permissions], system: false, createdAt: now };
+      const created: Role = { id: stableId(`role:${account.key}`), name: account.roleName, permissions: [...account.permissions], system: false, createdAt: now };
       db.roles.push(created);
       role = created;
     }
     if (!role) continue;
 
     const user: User = {
-      id: crypto.randomUUID(), name: account.name, email: account.email, passwordHash: await hashPassword(account.password),
+      id: stableId(`user:${account.email}`), name: account.name, email: account.email, passwordHash: await hashPassword(account.password),
       roleId: role.id, active: true, sessionVersion: 0, createdAt: now, lastLoginAt: null,
     };
     db.users.push(user);
