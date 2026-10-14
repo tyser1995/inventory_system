@@ -1,5 +1,6 @@
 import "server-only";
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 /**
@@ -36,11 +37,15 @@ export interface AppConfig {
 }
 
 // turbopackIgnore: runtime data files must not be traced/bundled into the build output.
-export const DATA_DIR = process.env.INVENTORY_DATA_DIR ?? path.join(/* turbopackIgnore: true */ process.cwd(), "data");
+// On Vercel only the temp dir is writable (and not persistent), so logs/backups there are ephemeral.
+export const DATA_DIR =
+  process.env.INVENTORY_DATA_DIR ??
+  (process.env.VERCEL ? path.join(os.tmpdir(), "inventory-data") : path.join(/* turbopackIgnore: true */ process.cwd(), "data"));
 const CONFIG_FILE = path.join(DATA_DIR, "config.json");
 
 export const DEFAULT_CONFIG: AppConfig = {
-  provider: "local",
+  // With no config file (e.g. a fresh Vercel deploy), Supabase env vars select Supabase.
+  provider: process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY ? "supabase" : "local",
   supabase: { url: "", serviceKey: "" },
   logs: { retentionDays: 90, trackPageViews: true },
   backup: {
