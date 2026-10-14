@@ -3,7 +3,7 @@
  * time, so changing one on Vercel needs a redeploy.
  */
 
-/** Seeds demo accounts from env and shows one-click demo sign-in on the login page. Never enable with real data. */
+/** Creates the demo accounts from env (SUPERADMIN_*, ADMIN_*, MANAGER_*, STAFF_*); sign in with their email and password. */
 export const DEV_MODE = process.env.NEXT_PUBLIC_DEV_MODE === "true";
 
 /** Sends every page to /maintenance and answers API calls with 503. */

@@ -23,9 +23,6 @@ const ACCOUNTS = [
   { key: "staff", env: "STAFF", roleId: "staff", label: "Staff" },
 ] as const;
 
-export type DemoAccountKey = (typeof ACCOUNTS)[number]["key"];
-export const DEMO_ACCOUNT_KEYS = ACCOUNTS.map((a) => a.key) as [DemoAccountKey, ...DemoAccountKey[]];
-
 const MIN_PASSWORD = 8;
 
 /**
